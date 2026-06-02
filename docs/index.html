@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Resume Analysis</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}
+.container{max-width:960px;margin:0 auto}
+h1{text-align:center;color:#fff;font-size:1.8rem;margin-bottom:4px}
+.subtitle{text-align:center;color:rgba(255,255,255,.8);margin-bottom:20px;font-size:.9rem}
+.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.card h2{font-size:1.1rem;color:#333;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #667eea}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-weight:600;color:#444;margin-bottom:6px;font-size:.9rem}
+.api-config{display:flex;gap:8px}
+.api-config input{flex:1;border:1px solid #ddd;border-radius:8px;padding:8px 12px;font-size:13px}
+.api-config input:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.15)}
+.api-config button{background:#667eea;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;white-space:nowrap}
+.api-config button:hover{background:#5a6fd6}
+.api-status{font-size:.75rem;margin-top:4px}
+.api-status.ok{color:#4caf50}
+.api-status.err{color:#f44336}
+.file-upload{border:2px dashed #ccc;border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .3s}
+.file-upload:hover{border-color:#667eea;background:#f8f7ff}
+.file-upload.has-file{border-color:#4caf50;background:#f1f8e9}
+.file-upload input{display:none}
+.file-upload .icon{font-size:2rem;margin-bottom:6px}
+textarea{width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px;resize:vertical;min-height:100px;font-family:inherit}
+textarea:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.15)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 32px;font-size:.95rem;font-weight:600;border:none;border-radius:10px;cursor:pointer;transition:all .3s}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;width:100%;justify-content:center}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.result-section{margin-bottom:20px}
+.result-section h3{font-size:.95rem;color:#667eea;margin-bottom:10px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.info-item{background:#f8f9ff;padding:10px 14px;border-radius:8px}
+.info-item .label{font-size:.7rem;color:#888;margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px}
+.info-item .value{font-size:.9rem;color:#333;font-weight:500}
+.score-display{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:16px}
+.score-circle{width:80px;height:80px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:700}
+.score-circle.overall{background:linear-gradient(135deg,#667eea,#764ba2);width:100px;height:100px;font-size:1.6rem}
+.score-circle.sub{background:linear-gradient(135deg,#43e97b,#38f9d7);font-size:1.1rem}
+.score-circle .score-label{font-size:.55rem;font-weight:400;opacity:.9}
+.highlight-box{padding:12px 16px;border-radius:8px;margin-bottom:10px;font-size:.9rem}
+.highlight-box.good{background:#e8f5e9;border-left:4px solid #4caf50}
+.highlight-box.bad{background:#fbe9e7;border-left:4px solid #ff5722}
+.highlight-box.info{background:#e3f2fd;border-left:4px solid #2196f3}
+.tag{display:inline-block;background:#e8eaf6;color:#5c6bc0;padding:3px 8px;border-radius:20px;font-size:.8rem;margin:2px}
+.loading{display:none;text-align:center;padding:24px}
+.loading.active{display:block}
+.spinner{display:inline-block;width:36px;height:36px;border:3px solid #e0e0e0;border-top-color:#667eea;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.results{display:none}
+.results.active{display:block}
+.error{display:none;background:#ffebee;color:#c62828;padding:14px;border-radius:8px;margin-bottom:14px;font-size:.9rem}
+.error.active{display:block}
+.cache-badge{display:inline-block;background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:20px;font-size:.75rem;margin-left:8px}
+.timeline{margin-top:10px}
+.timeline-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0}
+.timeline-item:last-child{border-bottom:none}
+.timeline-dot{width:7px;height:7px;background:#667eea;border-radius:50%;margin-top:5px;flex-shrink:0}
+.footer{text-align:center;color:rgba(255,255,255,.6);font-size:.75rem;padding:20px 0}
+.footer a{color:rgba(255,255,255,.8)}
+@media(max-width:600px){.card{padding:16px}.info-grid{grid-template-columns:1fr}.score-display{gap:10px}.api-config{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>AI Resume Analysis</h1>
+<p class="subtitle">LangChain + DeepSeek | Resume Parsing & Job Matching</p>
+
+<div class="card">
+<h2>API Configuration</h2>
+<div class="form-group">
+<label>Backend API Base URL</label>
+<div class="api-config">
+<input type="text" id="apiBaseUrl" placeholder="http://localhost:8080">
+<button onclick="saveApiUrl()">Save</button>
+<button onclick="checkHealth()" style="background:#43a047;width:auto">Test</button>
+</div>
+<p class="api-status" id="apiStatus"></p>
+</div>
+</div>
+
+<div class="card">
+<h2>Upload Resume</h2>
+<div class="form-group">
+<label>Resume File (PDF)</label>
+<div class="file-upload" id="fileUpload" onclick="document.getElementById('fileInput').click()">
+<div class="icon">&#128196;</div>
+<p id="fileLabel">Click to upload or drag PDF here</p>
+<input type="file" id="fileInput" accept=".pdf">
+</div>
+</div>
+<div class="form-group">
+<label>Job Description (Optional)</label>
+<textarea id="jdInput" placeholder="Paste job description: requirements, skills, responsibilities..."></textarea>
+</div>
+<button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">Analyze Resume</button>
+</div>
+
+<div class="loading" id="loading">
+<div class="spinner"></div>
+<p style="margin-top:12px;color:#fff">AI is analyzing the resume...</p>
+</div>
+
+<div class="error" id="error"></div>
+
+<div class="results" id="results">
+<div class="card" id="matchCard" style="display:none">
+<h2>Match Score <span class="cache-badge" id="cacheBadge" style="display:none">Cached</span></h2>
+<div class="score-display">
+<div class="score-circle overall"><span id="overallScore">-</span><span class="score-label">Overall</span></div>
+<div class="score-circle sub"><span id="skillScore">-</span><span class="score-label">Skills</span></div>
+<div class="score-circle sub"><span id="expScore">-</span><span class="score-label">Experience</span></div>
+</div>
+<div class="highlight-box good"><strong>Highlights:</strong> <span id="highlights"></span></div>
+<div class="highlight-box bad"><strong>Gaps:</strong> <span id="gaps"></span></div>
+<div class="highlight-box info"><strong>Recommendation:</strong> <span id="recommendation"></span></div>
+</div>
+<div class="card">
+<h2>Parsed Resume</h2>
+<div id="resumeResult"></div>
+</div>
+</div>
+
+<div class="footer">
+<a href="https://github.com/bitqyh/AI_test" target="_blank">GitHub</a> | Powered by DeepSeek & LangChain
+</div>
+</div>
+
+<script>
+const STORAGE_KEY = 'resume_analyzer_api_url';
+const DEFAULT_API = 'http://localhost:8080';
+
+function getApiBase() {
+    return localStorage.getItem(STORAGE_KEY) || DEFAULT_API;
+}
+
+function saveApiUrl() {
+    const url = document.getElementById('apiBaseUrl').value.trim();
+    if (url) {
+        localStorage.setItem(STORAGE_KEY, url);
+        checkHealth();
+    }
+}
+
+async function checkHealth() {
+    const url = document.getElementById('apiBaseUrl').value.trim() || getApiBase();
+    const status = document.getElementById('apiStatus');
+    status.textContent = 'Checking...';
+    status.className = 'api-status';
+    try {
+        const resp = await fetch(url + '/api/v1/system/health', { signal: AbortSignal.timeout(5000) });
+        if (resp.ok) {
+            status.textContent = 'Connected';
+            status.className = 'api-status ok';
+            localStorage.setItem(STORAGE_KEY, url);
+            document.getElementById('apiBaseUrl').value = url;
+        } else {
+            status.textContent = 'API Error: ' + resp.status;
+            status.className = 'api-status err';
+        }
+    } catch(e) {
+        status.textContent = 'Connection failed: ' + (e.message || 'timeout');
+        status.className = 'api-status err';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('apiBaseUrl').value = getApiBase();
+    checkHealth();
+});
+
+const fileInput = document.getElementById('fileInput');
+const fileUpload = document.getElementById('fileUpload');
+const fileLabel = document.getElementById('fileLabel');
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+        fileLabel.textContent = fileInput.files[0].name;
+        fileUpload.classList.add('has-file');
+    } else {
+        fileLabel.textContent = 'Click to upload or drag PDF here';
+        fileUpload.classList.remove('has-file');
+    }
+});
+
+fileUpload.addEventListener('dragover', (e) => { e.preventDefault(); fileUpload.style.borderColor = '#667eea'; });
+fileUpload.addEventListener('dragleave', () => { fileUpload.style.borderColor = '#ccc'; });
+fileUpload.addEventListener('drop', (e) => {
+    e.preventDefault();
+    fileUpload.style.borderColor = '#ccc';
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change'));
+    }
+});
+
+async function analyze() {
+    if (!fileInput.files[0]) { showError('Please upload a PDF resume first'); return; }
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Analyzing...';
+    hideError();
+    document.getElementById('results').classList.remove('active');
+    document.getElementById('loading').classList.add('active');
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('job_description', document.getElementById('jdInput').value);
+
+    try {
+        const apiBase = getApiBase();
+        const resp = await fetch(apiBase + '/api/v1/resume/analyze', { method: 'POST', body: formData });
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.detail || 'Analysis failed');
+        }
+        const data = await resp.json();
+        renderResults(data);
+    } catch(e) {
+        showError(e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze Resume';
+        document.getElementById('loading').classList.remove('active');
+    }
+}
+
+function renderResults(data) {
+    document.getElementById('results').classList.add('active');
+    const match = data.match;
+    const matchCard = document.getElementById('matchCard');
+    if (match) {
+        matchCard.style.display = '';
+        document.getElementById('overallScore').textContent = match.overall_score;
+        document.getElementById('skillScore').textContent = match.skill_score;
+        document.getElementById('expScore').textContent = match.experience_score;
+        document.getElementById('highlights').textContent = match.highlights || '-';
+        document.getElementById('gaps').textContent = match.gaps || '-';
+        document.getElementById('recommendation').textContent = match.recommendation || '-';
+        document.getElementById('cacheBadge').style.display = data.from_cache ? '' : 'none';
+    } else { matchCard.style.display = 'none'; }
+
+    const resume = data.resume;
+    let html = '';
+    if (resume.basic_info) {
+        html += '<div class="result-section"><h3>Basic Info</h3><div class="info-grid">';
+        const bi = resume.basic_info;
+        if (bi.name) html += '<div class="info-item"><div class="label">Name</div><div class="value">' + esc(bi.name) + '</div></div>';
+        if (bi.phone) html += '<div class="info-item"><div class="label">Phone</div><div class="value">' + esc(bi.phone) + '</div></div>';
+        if (bi.email) html += '<div class="info-item"><div class="label">Email</div><div class="value">' + esc(bi.email) + '</div></div>';
+        html += '</div></div>';
+    }
+    if (resume.job_intention) html += '<div class="result-section"><h3>Career Objective</h3><p style="color:#333">' + esc(resume.job_intention) + '</p></div>';
+    if (resume.education && resume.education.length) {
+        html += '<div class="result-section"><h3>Education</h3>';
+        resume.education.forEach(e => {
+            html += '<div class="info-item" style="margin-bottom:6px"><div class="value">' + esc(e.school||'') + ' | ' + esc(e.degree||'') + ' | ' + esc(e.major||'') + (e.graduate_year ? ' (' + esc(e.graduate_year) + ')' : '') + '</div></div>';
+        });
+        html += '</div>';
+    }
+    if (resume.skills && resume.skills.length) {
+        html += '<div class="result-section"><h3>Skills</h3>';
+        resume.skills.forEach(s => { html += '<span class="tag">' + esc(s) + '</span>'; });
+        html += '</div>';
+    }
+    if (resume.work_experience && resume.work_experience.length) {
+        html += '<div class="result-section"><h3>Work Experience</h3><div class="timeline">';
+        resume.work_experience.forEach(exp => {
+            html += '<div class="timeline-item"><div class="timeline-dot"></div><div><strong>' + esc(exp.position||'') + '</strong> @ ' + esc(exp.company||'') + (exp.start_date ? ' <span style="color:#888">(' + esc(exp.start_date) + ' - ' + esc(exp.end_date||'Present') + ')</span>' : '') + (exp.description ? '<p style="color:#666;font-size:.85rem;margin-top:3px">' + esc(exp.description) + '</p>' : '') + (exp.highlights ? '<p style="color:#666;font-size:.85rem">' + exp.highlights.map(h => '&bull; ' + esc(h)).join('<br>') + '</p>' : '') + '</div></div>';
+        });
+        html += '</div></div>';
+    }
+    if (resume.projects && resume.projects.length) {
+        html += '<div class="result-section"><h3>Projects</h3>';
+        resume.projects.forEach(p => {
+            html += '<div class="info-item" style="margin-bottom:6px"><div class="value"><strong>' + esc(p.name||'') + '</strong>' + (p.role ? ' | ' + esc(p.role) : '') + (p.description ? '<p style="color:#666;font-size:.85rem;margin-top:3px">' + esc(p.description) + '</p>' : '') + (p.tech_stack ? '<p style="margin-top:3px">' + p.tech_stack.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</p>' : '') + '</div></div>';
+        });
+        html += '</div>';
+    }
+    if (resume.self_evaluation) html += '<div class="result-section"><h3>Self Evaluation</h3><p style="color:#666;font-size:.9rem">' + esc(resume.self_evaluation) + '</p></div>';
+    document.getElementById('resumeResult').innerHTML = html;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function showError(m) { const e = document.getElementById('error'); e.innerHTML = m; e.classList.add('active'); }
+function hideError() { document.getElementById('error').classList.remove('active'); }
+</script>
+</body>
+</html>
